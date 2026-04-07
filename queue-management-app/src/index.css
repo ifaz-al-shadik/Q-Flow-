@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-dark-surface dark:text-gray-100 transition-colors duration-300;
+  }
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Leaflet dark mode overrides */
+.dark .leaflet-container {
+  background: #1e293b;
+}
+
+.dark .leaflet-popup-content-wrapper {
+  background: #1e293b;
+  color: #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+}
+
+.dark .leaflet-popup-tip {
+  background: #1e293b;
+}
+
+/* Enhanced Leaflet popup styles */
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  padding: 4px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .custom-popup .leaflet-popup-content-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 8px 10px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.custom-popup .leaflet-popup-close-button {
+  display: none;
+}
+
+/* Marker pulse animation */
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
