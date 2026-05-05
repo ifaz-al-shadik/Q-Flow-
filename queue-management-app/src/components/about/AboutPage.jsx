@@ -34,7 +34,7 @@ const FAQS = [
 const TEAM = [
     { name: 'Ifaz', role: 'Project Lead & Full-Stack Dev', avatar: 'IF', color: 'bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300' },
     { name: 'Siam', role: 'Frontend Developer — Rating System', avatar: 'SI', color: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300' },
-    { name: 'Oritrow', role: 'Frontend Developer — About & FAQ', avatar: 'OR', color: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' },
+    { name: 'mearnob', role: 'Frontend Developer — About & FAQ', avatar: 'ME', color: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' },
 ];
 
 function FAQItem({ q, a }) {
