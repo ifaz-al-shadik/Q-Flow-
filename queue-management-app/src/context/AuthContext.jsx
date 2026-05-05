@@ -9,95 +9,64 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(() => {
-        try {
-            const saved = localStorage.getItem('qflow-user');
-            return saved ? JSON.parse(saved) : null;
-        } catch { return null; }
+    const [user, setUser] = useState(null);
+    const [reportHistory, setReportHistory] = useState([]);
+    const [queuePositions, setQueuePositions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const getToken = () => localStorage.getItem('qflow-token');
+
+    const authHeaders = () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getToken()}`
     });
 
-    const [reportHistory, setReportHistory] = useState(() => {
-        try {
-            const saved = localStorage.getItem('qflow-reports');
-            return saved ? JSON.parse(saved) : [];
-        } catch { return []; }
-    });
-
-    const [queuePositions, setQueuePositions] = useState(() => {
-        try {
-            const saved = localStorage.getItem('qflow-queues');
-            return saved ? JSON.parse(saved) : [];
-        } catch { return []; }
-    });
-
-    // Load user and queues on mount
+    // Load user + queues + reports on mount
     useEffect(() => {
         const loadInitialData = async () => {
-            const token = localStorage.getItem('qflow-token');
-            if (!token) return;
-
+            const token = getToken();
+            if (!token) { setLoading(false); return; }
             try {
-                // Fetch User Profile
                 const userRes = await fetch('/api/auth/me', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-
                 if (userRes.ok) {
                     const userData = await userRes.json();
-                    setUser({
-                        id: userData._id,
-                        name: userData.name,
-                        email: userData.email,
-                        avatar: userData.avatar,
-                        reportsCount: userData.reportsCount
-                    });
-
-                    // Fetch Active Queues for this user
-                    const queueRes = await fetch('/api/queues', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (queueRes.ok) {
-                        const queueData = await queueRes.json();
-                        setQueuePositions(queueData);
-                    }
+                    setUser(userData);
+                    // Fetch queues and report history in parallel
+                    const [queueRes, reportRes] = await Promise.all([
+                        fetch('/api/queues', { headers: { 'Authorization': `Bearer ${token}` } }),
+                        fetch('/api/reports/my', { headers: { 'Authorization': `Bearer ${token}` } })
+                    ]);
+                    if (queueRes.ok) setQueuePositions(await queueRes.json());
+                    if (reportRes.ok) setReportHistory(await reportRes.json());
                 } else {
-                    // Token invalid or expired
                     localStorage.removeItem('qflow-token');
-                    setUser(null);
                 }
             } catch (error) {
-                console.error('Error loading initial auth data:', error);
+                console.error('Error loading auth data:', error);
+            } finally {
+                setLoading(false);
             }
         };
-
         loadInitialData();
     }, []);
 
-    const signUp = useCallback(async (name, email, password) => {
+    const signUp = useCallback(async (name, email, password, role = 'visitor') => {
         try {
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password })
+                body: JSON.stringify({ name, email, password, role })
             });
             const data = await res.json();
-
-            if (!res.ok) {
-                return { success: false, error: data.message || 'Registration failed' };
-            }
-
+            if (!res.ok) return { success: false, error: data.message || 'Registration failed' };
             localStorage.setItem('qflow-token', data.token);
-            setUser({
-                id: data._id,
-                name: data.name,
-                email: data.email,
-                avatar: data.avatar,
-                reportsCount: data.reportsCount
-            });
+            setUser(data);
+            setReportHistory([]);
+            setQueuePositions([]);
             return { success: true };
-        } catch (error) {
-            return { success: false, error: 'Network error occurred' };
-        }
+        } catch { return { success: false, error: 'Network error occurred' }; }
     }, []);
 
     const signIn = useCallback(async (email, password) => {
@@ -108,23 +77,18 @@ export const AuthProvider = ({ children }) => {
                 body: JSON.stringify({ email, password })
             });
             const data = await res.json();
-
-            if (!res.ok) {
-                return { success: false, error: data.message || 'Login failed' };
-            }
-
+            if (!res.ok) return { success: false, error: data.message || 'Login failed' };
             localStorage.setItem('qflow-token', data.token);
-            setUser({
-                id: data._id,
-                name: data.name,
-                email: data.email,
-                avatar: data.avatar,
-                reportsCount: data.reportsCount
-            });
+            setUser(data);
+            // Load queues and reports after login
+            const [queueRes, reportRes] = await Promise.all([
+                fetch('/api/queues', { headers: { 'Authorization': `Bearer ${data.token}` } }),
+                fetch('/api/reports/my', { headers: { 'Authorization': `Bearer ${data.token}` } })
+            ]);
+            if (queueRes.ok) setQueuePositions(await queueRes.json());
+            if (reportRes.ok) setReportHistory(await reportRes.json());
             return { success: true };
-        } catch (error) {
-            return { success: false, error: 'Network error occurred' };
-        }
+        } catch { return { success: false, error: 'Network error occurred' }; }
     }, []);
 
     const signOut = useCallback(() => {
@@ -134,48 +98,49 @@ export const AuthProvider = ({ children }) => {
         setReportHistory([]);
     }, []);
 
+    const updateProfile = useCallback(async (updates) => {
+        try {
+            const res = await fetch('/api/auth/profile', {
+                method: 'PATCH',
+                headers: authHeaders(),
+                body: JSON.stringify(updates)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            setUser(data);
+            return { success: true };
+        } catch (e) { return { success: false, error: e.message }; }
+    }, []);
+
     const addReport = useCallback(async (report) => {
         try {
-            const token = localStorage.getItem('qflow-token');
-            // We can still allow anonymous reports if backend supports it, but here we pass token if available
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
             const res = await fetch('/api/reports', {
                 method: 'POST',
-                headers,
+                headers: authHeaders(),
                 body: JSON.stringify({
-                    placeId: report.serviceId,
+                    placeId: report.placeId,
                     reportedWaitTime: report.waitTime,
-                    reportedCrowdStatus: report.crowdStatus
+                    reportedCrowdStatus: report.crowdLevel,
+                    reportType: report.reportType || 'wait_time',
+                    note: report.note || ''
                 })
             });
-
             if (!res.ok) throw new Error('Failed to submit report');
-
             const savedReport = await res.json();
-
             setReportHistory(prev => [savedReport, ...prev].slice(0, 50));
-            if (user && token) {
-                setUser(prev => ({ ...prev, reportsCount: (prev.reportsCount || 0) + 1 }));
-            }
+            setUser(prev => ({ ...prev, reportsCount: (prev?.reportsCount || 0) + 1 }));
+            return savedReport;
         } catch (error) {
             console.error('Error adding report:', error);
             throw error;
         }
-    }, [user]);
+    }, []);
 
     const joinQueue = useCallback(async (service) => {
         try {
-            const token = localStorage.getItem('qflow-token');
-            if (!token) throw new Error('Not authenticated');
-
             const res = await fetch('/api/queues', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: authHeaders(),
                 body: JSON.stringify({
                     serviceId: service.id,
                     serviceName: service.name,
@@ -183,43 +148,56 @@ export const AuthProvider = ({ children }) => {
                 })
             });
             const data = await res.json();
-
             if (!res.ok) throw new Error(data.message || 'Failed to join queue');
-
-            setQueuePositions(prev => [data, ...prev.filter(q => q.serviceId !== service.id)]);
+            setQueuePositions(prev => [data, ...prev.filter(q => q.serviceId?.toString() !== service.id?.toString())]);
             return data;
-        } catch (error) {
-            console.error('Error joining queue:', error);
-            throw error;
-        }
+        } catch (error) { throw error; }
+    }, []);
+
+    const arriveAtQueue = useCallback(async (queueId) => {
+        try {
+            const res = await fetch(`/api/queues/${queueId}/arrive`, {
+                method: 'PATCH',
+                headers: authHeaders()
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            setQueuePositions(prev => prev.map(q => q._id === queueId ? data : q));
+            return data;
+        } catch (error) { throw error; }
+    }, []);
+
+    const completeQueue = useCallback(async (queueId) => {
+        try {
+            const res = await fetch(`/api/queues/${queueId}/complete`, {
+                method: 'PATCH',
+                headers: authHeaders()
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            setQueuePositions(prev => prev.filter(q => q._id !== queueId));
+            return data;
+        } catch (error) { throw error; }
     }, []);
 
     const leaveQueue = useCallback(async (serviceId) => {
         try {
-            const token = localStorage.getItem('qflow-token');
-            if (!token) return;
-
             const res = await fetch(`/api/queues/${serviceId}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${getToken()}` }
             });
-
-            if (res.ok) {
-                setQueuePositions(prev => prev.filter(q => q.serviceId !== serviceId));
-            }
-        } catch (error) {
-            console.error('Error leaving queue:', error);
-        }
+            if (res.ok) setQueuePositions(prev => prev.filter(q => q.serviceId?.toString() !== serviceId?.toString()));
+        } catch (error) { console.error('Error leaving queue:', error); }
     }, []);
 
     return (
         <AuthContext.Provider value={{
-            user, isAuthenticated: !!user,
-            signUp, signIn, signOut,
+            user, isAuthenticated: !!user, loading,
+            signUp, signIn, signOut, updateProfile,
             reportHistory, addReport,
-            queuePositions, joinQueue, leaveQueue
+            queuePositions, joinQueue, arriveAtQueue, completeQueue, leaveQueue,
+            isAdmin: user?.role === 'admin',
+            isProvider: user?.role === 'provider' || user?.role === 'admin',
         }}>
             {children}
         </AuthContext.Provider>

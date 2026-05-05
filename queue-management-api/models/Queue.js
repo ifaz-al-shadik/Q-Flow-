@@ -7,8 +7,9 @@ const queueSchema = new mongoose.Schema({
         ref: 'User'
     },
     serviceId: {
-        type: String,
-        required: true
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Place'
     },
     serviceName: {
         type: String,
@@ -26,9 +27,29 @@ const queueSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    // FR-4: Queue Check-In timestamp
+    joinedAt: {
+        type: Date,
+        default: Date.now
+    },
+    // FR-4: 'I Arrived' button timestamp
+    arrivedAt: {
+        type: Date,
+        default: null
+    },
+    // FR-5: 'My Turn Finished' timestamp
+    completedAt: {
+        type: Date,
+        default: null
+    },
+    // FR-5 & FR-6: Actual calculated wait time in minutes
+    actualWaitTime: {
+        type: Number,
+        default: null
+    },
     status: {
         type: String,
-        enum: ['waiting', 'serving', 'completed', 'cancelled'],
+        enum: ['waiting', 'arrived', 'serving', 'completed', 'cancelled'],
         default: 'waiting'
     }
 }, {

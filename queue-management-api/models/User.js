@@ -21,10 +21,23 @@ const userSchema = new mongoose.Schema({
     avatar: {
         type: String,
     },
+    role: {
+        type: String,
+        enum: ['visitor', 'reporter', 'provider', 'admin'],
+        default: 'visitor'
+    },
     reportsCount: {
         type: Number,
         default: 0
-    }
+    },
+    notificationThreshold: {
+        type: Number,
+        default: 15  // minutes — notify when wait drops below this
+    },
+    subscribedPlaces: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Place'
+    }]
 }, {
     timestamps: true
 });
@@ -39,7 +52,6 @@ userSchema.pre('save', async function (next) {
     next();
 });
 
-// Match user entered password to hashed password in database
 userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Clock, UserCircle, Menu, X, Bell, Sun, Moon, LogOut, User, Heart, ChevronDown } from 'lucide-react';
+import { Clock, UserCircle, Menu, X, Bell, Sun, Moon, LogOut, User, Heart, ChevronDown, ShieldCheck, BarChart2 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
@@ -8,16 +8,16 @@ import { useAuth } from '../../context/AuthContext';
 import NotificationPanel from './NotificationPanel';
 import AuthModal from './AuthModal';
 
-const navLinks = [
+const baseNavLinks = [
     { to: '/', label: 'Find Service' },
     { to: '/report', label: 'Reporter Access' },
-    { to: '/analytics', label: 'Analytics Insights' },
+    { to: '/analytics', label: 'Analytics' },
 ];
 
 const Navbar = () => {
     const { isDark, toggleTheme } = useTheme();
     const { unreadCount } = useNotifications();
-    const { user, isAuthenticated, signOut } = useAuth();
+    const { user, isAuthenticated, signOut, isAdmin, isProvider } = useAuth();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
     const [authOpen, setAuthOpen] = useState(false);
@@ -25,6 +25,12 @@ const Navbar = () => {
     const profileRef = useRef(null);
     const location = useLocation();
     const navigate = useNavigate();
+
+    const navLinks = [
+        ...baseNavLinks,
+        ...(isProvider ? [{ to: '/provider', label: 'Provider' }] : []),
+        ...(isAdmin ? [{ to: '/admin', label: 'Admin' }] : []),
+    ];
 
     // Close profile dropdown on outside click
     useEffect(() => {
@@ -144,10 +150,22 @@ const Navbar = () => {
                                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors text-left">
                                                     <User className="w-4 h-4 text-gray-400" /> My Profile
                                                 </button>
-                                                <button onClick={() => { setProfileOpen(false); navigate('/profile'); }}
+                                                <button onClick={() => { setProfileOpen(false); navigate('/profile?tab=favorites'); }}
                                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors text-left">
                                                     <Heart className="w-4 h-4 text-gray-400" /> Favorites
                                                 </button>
+                                                {isAdmin && (
+                                                    <button onClick={() => { setProfileOpen(false); navigate('/admin'); }}
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-500/10 transition-colors text-left">
+                                                        <ShieldCheck className="w-4 h-4" /> Admin Panel
+                                                    </button>
+                                                )}
+                                                {isProvider && !isAdmin && (
+                                                    <button onClick={() => { setProfileOpen(false); navigate('/provider'); }}
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors text-left">
+                                                        <BarChart2 className="w-4 h-4" /> Provider Dashboard
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="border-t border-gray-100 dark:border-dark-border py-1">
                                                 <button onClick={handleSignOut}
